@@ -156,8 +156,8 @@ namespace SnakeVR
             segments.Clear();
             positionHistory.Clear();
 
-            // Reset position and direction
-            headTransform.position = Vector3.zero;
+            // Reset position and direction - Start above ground level
+            headTransform.position = new Vector3(0, 1.5f, 0);
             currentDirection = Vector3.forward;
             targetDirection = Vector3.forward;
             headTransform.rotation = Quaternion.LookRotation(currentDirection);

@@ -112,8 +112,15 @@ namespace SnakeVR
                     }
                     else
                     {
-                        Material mat = new Material(Shader.Find("Standard"));
-                        mat.color = new Color(0.2f, 0.2f, 0.2f, 0.7f);
+                        // Try URP/Lit first, fallback to Universal Render Pipeline/Lit, then Standard
+                        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+                        if (shader == null)
+                            shader = Shader.Find("URP/Lit");
+                        if (shader == null)
+                            shader = Shader.Find("Standard");
+                        
+                        Material mat = new Material(shader);
+                        mat.color = new Color(0.3f, 0.3f, 0.3f, 1f); // Gris foncé opaque
                         renderer.material = mat;
                     }
                 }

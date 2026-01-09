@@ -48,6 +48,8 @@ namespace SnakeVR
         private void Start()
         {
             currentSpeed = initialSpeed;
+            // Auto-start the game
+            StartGame();
             ChangeState(GameState.Menu);
         }
 
