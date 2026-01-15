@@ -1,6 +1,9 @@
 using UnityEngine;
 using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.InputSystem;
+using XRInputDevice = UnityEngine.XR.InputDevice;
+using XRCommonUsages = UnityEngine.XR.CommonUsages;
 
 namespace SnakeVR
 {
@@ -27,8 +30,8 @@ namespace SnakeVR
         [SerializeField] private XRNode rightControllerNode = XRNode.RightHand;
 
         // Input devices
-        private InputDevice leftController;
-        private InputDevice rightController;
+        private XRInputDevice leftController;
+        private XRInputDevice rightController;
 
         // Cached input
         private Vector2 currentInput = Vector2.zero;
@@ -106,17 +109,31 @@ namespace SnakeVR
             }
         }
 
-        private Vector2 GetJoystickInput(InputDevice controller)
+        private Vector2 GetJoystickInput(XRInputDevice controller)
         {
             Vector2 joystickValue = Vector2.zero;
 
             if (controller.isValid)
             {
                 // Try primary 2D axis (thumbstick)
-                if (controller.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
+                if (controller.TryGetFeatureValue(XRCommonUsages.primary2DAxis, out Vector2 axis))
                 {
                     joystickValue = axis;
                 }
+            }
+
+            // Fallback: Keyboard input for testing (IJKL keys)
+            if (joystickValue == Vector2.zero && Keyboard.current != null)
+            {
+                float x = 0f;
+                float z = 0f;
+
+                if (Keyboard.current.iKey.isPressed) z = 1f;  // Forward
+                if (Keyboard.current.kKey.isPressed) z = -1f; // Backward
+                if (Keyboard.current.jKey.isPressed) x = -1f; // Left
+                if (Keyboard.current.lKey.isPressed) x = 1f;  // Right
+
+                joystickValue = new Vector2(x, z);
             }
 
             // Apply deadzone
@@ -146,13 +163,13 @@ namespace SnakeVR
             return currentInput;
         }
 
-        private Vector2 GetControllerDirectionInput(InputDevice controller)
+        private Vector2 GetControllerDirectionInput(XRInputDevice controller)
         {
             if (!controller.isValid)
                 return Vector2.zero;
 
             // Get controller rotation
-            if (controller.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rotation))
+            if (controller.TryGetFeatureValue(XRCommonUsages.deviceRotation, out Quaternion rotation))
             {
                 Vector3 forward = rotation * Vector3.forward;
                 forward.y = 0; // Ignore vertical component
@@ -175,11 +192,11 @@ namespace SnakeVR
 
             if (leftController.isValid)
             {
-                leftController.TryGetFeatureValue(CommonUsages.menuButton, out leftMenu);
+                leftController.TryGetFeatureValue(XRCommonUsages.menuButton, out leftMenu);
             }
             if (rightController.isValid)
             {
-                rightController.TryGetFeatureValue(CommonUsages.menuButton, out rightMenu);
+                rightController.TryGetFeatureValue(XRCommonUsages.menuButton, out rightMenu);
             }
 
             return leftMenu || rightMenu;
@@ -192,7 +209,7 @@ namespace SnakeVR
             if (rightController.isValid)
             {
                 // Try primary button (A button on Quest)
-                rightController.TryGetFeatureValue(CommonUsages.primaryButton, out pressed);
+                rightController.TryGetFeatureValue(XRCommonUsages.primaryButton, out pressed);
             }
 
             return pressed;

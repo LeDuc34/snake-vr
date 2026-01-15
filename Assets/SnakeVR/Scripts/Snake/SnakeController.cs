@@ -3,13 +3,17 @@ using UnityEngine;
 
 namespace SnakeVR
 {
+    /// <summary>
+    /// Controls the snake movement. 
+    /// IMPORTANT: Attach this script to the XR Origin (XR Rig) GameObject.
+    /// The XR Origin IS the snake head - the camera will move with the snake!
+    /// </summary>
     public class SnakeController : MonoBehaviour
     {
         [Header("Snake Settings")]
         [SerializeField] private GameObject segmentPrefab;
         [SerializeField] private float segmentSpacing = 0.3f;
         [SerializeField] private int initialSegmentCount = 3;
-        [SerializeField] private Transform headTransform;
 
         [Header("Movement Settings")]
         [SerializeField] private float moveSpeed = 2f;
@@ -27,13 +31,15 @@ namespace SnakeVR
 
         // Input
         private VRInputManager inputManager;
+        private bool inputProcessed = false; // Pour détecter les nouveaux inputs seulement
+
+        // The head is this transform (XR Origin)
+        private Transform headTransform;
 
         private void Awake()
         {
-            if (headTransform == null)
-            {
-                headTransform = transform;
-            }
+            // The XR Origin itself is the snake head
+            headTransform = transform;
         }
 
         private void Start()
@@ -59,16 +65,65 @@ namespace SnakeVR
             {
                 Vector2 input = inputManager.GetMovementInput();
 
-                if (input.magnitude > 0.3f)
+                // Reset flag when joystick returns to center
+                if (input.magnitude < 0.3f)
                 {
-                    // Convert 2D input to 3D direction
-                    Vector3 inputDirection = new Vector3(input.x, 0, input.y).normalized;
+                    inputProcessed = false;
+                    return;
+                }
 
-                    // Don't allow 180 degree turns
-                    if (Vector3.Dot(inputDirection, -currentDirection) < 0.9f)
+                // Only process input once per joystick movement
+                if (inputProcessed)
+                {
+                    return;
+                }
+
+                // Mark as processed to ignore repeated inputs
+                inputProcessed = true;
+
+                // Calculate new direction based on current rotation
+                Quaternion currentRotation = Quaternion.LookRotation(currentDirection);
+                Quaternion newRotation = currentRotation;
+
+                if (Mathf.Abs(input.x) > Mathf.Abs(input.y))
+                {
+                    // Horizontal input (left/right) - rotate around Y axis
+                    if (input.x > 0)
                     {
-                        targetDirection = inputDirection;
+                        // Right: +90° around Y
+                        newRotation = currentRotation * Quaternion.Euler(0, 90, 0);
                     }
+                    else
+                    {
+                        // Left: -90° around Y
+                        newRotation = currentRotation * Quaternion.Euler(0, -90, 0);
+                    }
+                }
+                else
+                {
+                    // Vertical input (up/down) - rotate around X axis
+                    if (input.y > 0)
+                    {
+                        // Up: -90° around X (pitch up)
+                        newRotation = currentRotation * Quaternion.Euler(-90, 0, 0);
+                    }
+                    else
+                    {
+                        // Down: +90° around X (pitch down)
+                        newRotation = currentRotation * Quaternion.Euler(90, 0, 0);
+                    }
+                }
+
+                // Extract new direction from rotation
+                Vector3 newDirection = newRotation * Vector3.forward;
+
+                // Don't allow 180 degree turns (going backwards)
+                float dot = Vector3.Dot(newDirection.normalized, currentDirection.normalized);
+                if (dot > -0.9f)
+                {
+                    // Apply rotation IMMEDIATELY
+                    currentDirection = newDirection.normalized;
+                    targetDirection = newDirection.normalized;
                 }
             }
         }
@@ -86,26 +141,26 @@ namespace SnakeVR
                 );
             }
 
-            // Move at intervals
+            // Move continuously in current direction
+            headTransform.position += currentDirection * moveSpeed * Time.deltaTime;
+            headTransform.rotation = Quaternion.LookRotation(currentDirection);
+
+            // Update segments at intervals
             moveTimer += Time.deltaTime;
             if (moveTimer >= moveInterval)
             {
                 moveTimer = 0f;
-                MoveStep();
+                UpdateSegmentPositions();
             }
         }
 
-        private void MoveStep()
+        private void UpdateSegmentPositions()
         {
             // Store current head position
             positionHistory.Insert(0, headTransform.position);
 
-            // Move head
-            headTransform.position += currentDirection * segmentSpacing;
-            headTransform.rotation = Quaternion.LookRotation(currentDirection);
-
             // Limit history size
-            if (positionHistory.Count > segments.Count * 2)
+            if (positionHistory.Count > segments.Count * 10)
             {
                 positionHistory.RemoveAt(positionHistory.Count - 1);
             }

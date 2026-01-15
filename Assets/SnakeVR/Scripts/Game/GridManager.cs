@@ -46,41 +46,41 @@ namespace SnakeVR
             float halfX = gridSize.x / 2f;
             float halfY = gridSize.y / 2f;
             float halfZ = gridSize.z / 2f;
-            float wallThickness = 0.1f;
+            float wallThickness = 0.5f; // Augmenté de 0.1 à 0.5 pour être visible!
 
-            // Floor
+            // Floor - Positionné à Y=0 au lieu de -halfY
             CreateWall(
-                new Vector3(0, -halfY - wallThickness / 2, 0),
+                new Vector3(0, 0, 0),
                 new Vector3(gridSize.x, wallThickness, gridSize.z)
             );
 
-            // Ceiling
+            // Ceiling - Plus haut pour laisser de l'espace
             CreateWall(
-                new Vector3(0, halfY + wallThickness / 2, 0),
+                new Vector3(0, gridSize.y, 0),
                 new Vector3(gridSize.x, wallThickness, gridSize.z)
             );
 
             // Left wall
             CreateWall(
-                new Vector3(-halfX - wallThickness / 2, 0, 0),
+                new Vector3(-halfX - wallThickness / 2, gridSize.y / 2, 0),
                 new Vector3(wallThickness, gridSize.y, gridSize.z)
             );
 
             // Right wall
             CreateWall(
-                new Vector3(halfX + wallThickness / 2, 0, 0),
+                new Vector3(halfX + wallThickness / 2, gridSize.y / 2, 0),
                 new Vector3(wallThickness, gridSize.y, gridSize.z)
             );
 
             // Front wall
             CreateWall(
-                new Vector3(0, 0, halfZ + wallThickness / 2),
+                new Vector3(0, gridSize.y / 2, halfZ + wallThickness / 2),
                 new Vector3(gridSize.x, gridSize.y, wallThickness)
             );
 
             // Back wall
             CreateWall(
-                new Vector3(0, 0, -halfZ - wallThickness / 2),
+                new Vector3(0, gridSize.y / 2, -halfZ - wallThickness / 2),
                 new Vector3(gridSize.x, gridSize.y, wallThickness)
             );
         }

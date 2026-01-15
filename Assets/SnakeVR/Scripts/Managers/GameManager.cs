@@ -50,7 +50,7 @@ namespace SnakeVR
             currentSpeed = initialSpeed;
             // Auto-start the game
             StartGame();
-            ChangeState(GameState.Menu);
+            // Game starts automatically in Playing state (StartGame already sets it)
         }
 
         public void StartGame()
