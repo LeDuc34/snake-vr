@@ -274,20 +274,10 @@ namespace SnakeVR
 
         private void OnTriggerEnter(Collider other)
         {
-            if (other.CompareTag("Food"))
+            // Food is now handled by GrabbableFood + HandGrabber
+            // Only handle game over conditions here
+            if (other.CompareTag("Wall") || other.CompareTag("SnakeBody"))
             {
-                // Eat food
-                AddSegment();
-                Destroy(other.gameObject);
-
-                if (GameManager.Instance != null)
-                {
-                    GameManager.Instance.OnFoodEaten();
-                }
-            }
-            else if (other.CompareTag("Wall") || other.CompareTag("SnakeBody"))
-            {
-                // Game Over
                 if (GameManager.Instance != null)
                 {
                     GameManager.Instance.GameOver();
