@@ -57,6 +57,22 @@ namespace SnakeVR
             currentFood = Instantiate(foodPrefab, spawnPosition, Quaternion.identity);
             currentFood.tag = "Food";
 
+            // Add GrabbableFood component
+            if (currentFood.GetComponent<GrabbableFood>() == null)
+            {
+                currentFood.AddComponent<GrabbableFood>();
+            }
+
+            // Add Rigidbody for physics
+            Rigidbody rb = currentFood.GetComponent<Rigidbody>();
+            if (rb == null)
+            {
+                rb = currentFood.AddComponent<Rigidbody>();
+            }
+            rb.useGravity = false;
+            rb.linearDamping = 2f; // Slow down thrown food
+            rb.angularDamping = 2f;
+
             Debug.Log($"Food spawned at {spawnPosition}");
         }
 
@@ -93,11 +109,11 @@ namespace SnakeVR
             GameObject food = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             food.transform.localScale = Vector3.one * foodSize;
 
-            // Add trigger collider
+            // Set up collider for physics bouncing
             Collider col = food.GetComponent<Collider>();
             if (col != null)
             {
-                col.isTrigger = true;
+                col.isTrigger = false; // Changed from true - needed for physics bouncing
             }
 
             // Set color
