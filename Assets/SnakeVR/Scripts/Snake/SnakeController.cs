@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace SnakeVR
 {
@@ -21,13 +22,20 @@ namespace SnakeVR
 
         // Snake body
         private List<SnakeSegment> segments = new List<SnakeSegment>();
-        private List<Vector3> positionHistory = new List<Vector3>();
+
+        // Path tracking for segment following
+        private struct PathPoint
+        {
+            public Vector3 position;
+            public Quaternion rotation;
+            public float distance; // cumulative distance from start
+        }
+        private List<PathPoint> path = new List<PathPoint>();
+        private float totalDistance = 0f;
 
         // Movement
         private Vector3 currentDirection = Vector3.forward;
         private Vector3 targetDirection = Vector3.forward;
-        private float moveTimer = 0f;
-        private float moveInterval = 0.5f;
 
         // Input
         private VRInputManager inputManager;
@@ -35,6 +43,11 @@ namespace SnakeVR
 
         // The head is this transform (XR Origin)
         private Transform headTransform;
+
+#if UNITY_EDITOR
+        // Dev mode: press P to freeze snake movement for testing
+        private bool devModeFreeze = false;
+#endif
 
         private void Awake()
         {
@@ -54,6 +67,20 @@ namespace SnakeVR
             {
                 return;
             }
+
+#if UNITY_EDITOR
+            // Dev mode: P to toggle freeze
+            if (Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame)
+            {
+                devModeFreeze = !devModeFreeze;
+                Debug.Log($"[DEV] Snake movement {(devModeFreeze ? "FROZEN" : "RESUMED")} - Press P to toggle");
+            }
+
+            if (devModeFreeze)
+            {
+                return; // Skip movement, allow testing grab mechanics
+            }
+#endif
 
             HandleInput();
             MoveSnake();
@@ -141,31 +168,29 @@ namespace SnakeVR
                 );
             }
 
+            Vector3 previousPosition = headTransform.position;
+
             // Move continuously in current direction
             headTransform.position += currentDirection * moveSpeed * Time.deltaTime;
             headTransform.rotation = Quaternion.LookRotation(currentDirection);
 
-            // Update segments at intervals
-            moveTimer += Time.deltaTime;
-            if (moveTimer >= moveInterval)
+            // Record path continuously
+            float distanceMoved = Vector3.Distance(previousPosition, headTransform.position);
+            if (distanceMoved > 0.001f) // avoid duplicates
             {
-                moveTimer = 0f;
-                UpdateSegmentPositions();
-            }
-        }
-
-        private void UpdateSegmentPositions()
-        {
-            // Store current head position
-            positionHistory.Insert(0, headTransform.position);
-
-            // Limit history size
-            if (positionHistory.Count > segments.Count * 10)
-            {
-                positionHistory.RemoveAt(positionHistory.Count - 1);
+                totalDistance += distanceMoved;
+                path.Add(new PathPoint
+                {
+                    position = headTransform.position,
+                    rotation = headTransform.rotation,
+                    distance = totalDistance
+                });
             }
 
-            // Update segments
+            // Clean up old path points
+            CleanupPath();
+
+            // Update segments every frame
             UpdateSegments();
         }
 
@@ -173,28 +198,52 @@ namespace SnakeVR
         {
             for (int i = 0; i < segments.Count; i++)
             {
-                int historyIndex = (i + 1) * Mathf.RoundToInt(segmentSpacing / segmentSpacing);
+                // Each segment is at a fixed distance behind the previous one
+                float targetDistance = totalDistance - (i + 1) * segmentSpacing;
 
-                if (historyIndex < positionHistory.Count)
+                if (targetDistance < 0) continue; // not enough path recorded yet
+
+                // Find position on path
+                (Vector3 pos, Quaternion rot) = GetPositionOnPath(targetDistance);
+                segments[i].SetPositionAndRotation(pos, rot);
+            }
+        }
+
+        private (Vector3, Quaternion) GetPositionOnPath(float targetDistance)
+        {
+            // Find the two points to interpolate between
+            for (int i = path.Count - 1; i > 0; i--)
+            {
+                if (path[i].distance >= targetDistance && path[i - 1].distance <= targetDistance)
                 {
-                    Vector3 targetPosition = positionHistory[historyIndex];
-                    segments[i].MoveTo(targetPosition);
+                    // Interpolate between path[i-1] and path[i]
+                    float segmentLength = path[i].distance - path[i - 1].distance;
+                    if (segmentLength < 0.0001f) continue;
 
-                    // Rotation
-                    if (i == 0)
-                    {
-                        Vector3 direction = (headTransform.position - targetPosition).normalized;
-                        segments[i].transform.rotation = Quaternion.LookRotation(direction);
-                    }
-                    else if (historyIndex + 1 < positionHistory.Count)
-                    {
-                        Vector3 direction = (positionHistory[historyIndex - 1] - positionHistory[historyIndex + 1]).normalized;
-                        if (direction != Vector3.zero)
-                        {
-                            segments[i].transform.rotation = Quaternion.LookRotation(direction);
-                        }
-                    }
+                    float t = (targetDistance - path[i - 1].distance) / segmentLength;
+                    return (
+                        Vector3.Lerp(path[i - 1].position, path[i].position, t),
+                        Quaternion.Slerp(path[i - 1].rotation, path[i].rotation, t)
+                    );
                 }
+            }
+
+            // Fallback: last known point
+            if (path.Count > 0)
+                return (path[path.Count - 1].position, path[path.Count - 1].rotation);
+
+            return (headTransform.position, headTransform.rotation);
+        }
+
+        private void CleanupPath()
+        {
+            // Minimum required distance = last segment position
+            float minRequiredDistance = totalDistance - (segments.Count + 2) * segmentSpacing;
+
+            // Remove points that are too old
+            while (path.Count > 0 && path[0].distance < minRequiredDistance)
+            {
+                path.RemoveAt(0);
             }
         }
 
@@ -209,7 +258,8 @@ namespace SnakeVR
                 }
             }
             segments.Clear();
-            positionHistory.Clear();
+            path.Clear();
+            totalDistance = 0f;
 
             // Reset position and direction - Start above ground level
             headTransform.position = new Vector3(0, 1.5f, 0);
@@ -217,13 +267,19 @@ namespace SnakeVR
             targetDirection = Vector3.forward;
             headTransform.rotation = Quaternion.LookRotation(currentDirection);
 
+            // Initialize path with starting position
+            path.Add(new PathPoint
+            {
+                position = headTransform.position,
+                rotation = headTransform.rotation,
+                distance = 0f
+            });
+
             // Create initial segments
             for (int i = 0; i < initialSegmentCount; i++)
             {
                 AddSegment();
             }
-
-            moveTimer = 0f;
         }
 
         public void AddSegment()
@@ -269,7 +325,6 @@ namespace SnakeVR
         public void SetSpeed(float speed)
         {
             moveSpeed = speed;
-            moveInterval = 1f / speed;
         }
 
         private void OnTriggerEnter(Collider other)
