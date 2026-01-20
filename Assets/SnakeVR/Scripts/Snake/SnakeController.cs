@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace SnakeVR
 {
     /// <summary>
-    /// Controls the snake movement. 
+    /// Controls the snake movement.
     /// IMPORTANT: Attach this script to the XR Origin (XR Rig) GameObject.
     /// The XR Origin IS the snake head - the camera will move with the snake!
     /// </summary>
@@ -43,6 +43,10 @@ namespace SnakeVR
 
         // The head is this transform (XR Origin)
         private Transform headTransform;
+
+        // Effect modifiers
+        private float speedMultiplier = 1f;
+        private bool isGhostMode = false;
 
 #if UNITY_EDITOR
         // Dev mode: press P to freeze snake movement for testing
@@ -170,8 +174,8 @@ namespace SnakeVR
 
             Vector3 previousPosition = headTransform.position;
 
-            // Move continuously in current direction
-            headTransform.position += currentDirection * moveSpeed * Time.deltaTime;
+            // Move continuously in current direction (apply speed multiplier)
+            headTransform.position += currentDirection * moveSpeed * speedMultiplier * Time.deltaTime;
             headTransform.rotation = Quaternion.LookRotation(currentDirection);
 
             // Record path continuously
@@ -261,6 +265,10 @@ namespace SnakeVR
             path.Clear();
             totalDistance = 0f;
 
+            // Reset effect modifiers
+            speedMultiplier = 1f;
+            isGhostMode = false;
+
             // Reset position and direction - Start above ground level
             headTransform.position = new Vector3(0, 1.5f, 0);
             currentDirection = Vector3.forward;
@@ -319,7 +327,43 @@ namespace SnakeVR
             segmentObj.transform.position = position;
             segments.Add(segment);
 
+            // Notify UI of length change
+            if (UI.UIManager.Instance != null)
+            {
+                UI.UIManager.Instance.UpdateSnakeLength(segments.Count + 1);
+            }
+
             Debug.Log($"Snake length: {segments.Count + 1}");
+        }
+
+        public void AddSegments(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                AddSegment();
+            }
+        }
+
+        public void RemoveSegments(int count)
+        {
+            int toRemove = Mathf.Min(count, segments.Count);
+
+            for (int i = 0; i < toRemove; i++)
+            {
+                if (segments.Count > 0)
+                {
+                    int lastIndex = segments.Count - 1;
+                    SnakeSegment segment = segments[lastIndex];
+                    segments.RemoveAt(lastIndex);
+
+                    if (segment != null)
+                    {
+                        Destroy(segment.gameObject);
+                    }
+                }
+            }
+
+            Debug.Log($"Removed {toRemove} segments. Snake length: {segments.Count + 1}");
         }
 
         public void SetSpeed(float speed)
@@ -327,15 +371,44 @@ namespace SnakeVR
             moveSpeed = speed;
         }
 
+        public void SetSpeedMultiplier(float multiplier)
+        {
+            speedMultiplier = multiplier;
+            Debug.Log($"Speed multiplier set to {multiplier}");
+        }
+
+        public void SetGhostMode(bool enabled)
+        {
+            isGhostMode = enabled;
+            Debug.Log($"Ghost mode: {enabled}");
+        }
+
+        public bool IsGhostMode()
+        {
+            return isGhostMode;
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             // Food is now handled by GrabbableFood + HandGrabber
             // Only handle game over conditions here
-            if (other.CompareTag("Wall") || other.CompareTag("SnakeBody"))
+
+            if (other.CompareTag("Wall"))
             {
                 if (GameManager.Instance != null)
                 {
                     GameManager.Instance.GameOver();
+                }
+            }
+            else if (other.CompareTag("SnakeBody"))
+            {
+                // Ghost mode allows passing through own body
+                if (!isGhostMode)
+                {
+                    if (GameManager.Instance != null)
+                    {
+                        GameManager.Instance.GameOver();
+                    }
                 }
             }
         }
@@ -353,6 +426,11 @@ namespace SnakeVR
                 positions.Add(segment.transform.position);
             }
             return positions;
+        }
+
+        public int GetSegmentCount()
+        {
+            return segments.Count;
         }
     }
 }
