@@ -19,6 +19,9 @@ namespace SnakeVR
         private Collider col;
         private Transform headTransform;
 
+        // Food type for special effects
+        private FoodType foodType = FoodType.Normal;
+
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
@@ -51,6 +54,16 @@ namespace SnakeVR
             }
         }
 
+        public void SetFoodType(FoodType type)
+        {
+            foodType = type;
+        }
+
+        public FoodType GetFoodType()
+        {
+            return foodType;
+        }
+
         public bool CanBeGrabbed()
         {
             return currentState == FoodState.Free;
@@ -73,7 +86,7 @@ namespace SnakeVR
                 col.enabled = false;
             }
 
-            Debug.Log("Food grabbed");
+            Debug.Log($"Food grabbed: {foodType}");
         }
 
         public void Release(Vector3 velocity)
@@ -99,19 +112,43 @@ namespace SnakeVR
 
         private void Eat()
         {
+            // Apply special food effect
+            if (foodType != FoodType.Normal && SpecialFoodManager.Instance != null)
+            {
+                SpecialFoodManager.Instance.ApplyEffect(foodType);
+            }
+
+            // Get point multiplier for this food type
+            float pointMultiplier = 1f;
+            if (SpecialFoodManager.Instance != null)
+            {
+                pointMultiplier = SpecialFoodManager.Instance.GetPointMultiplier(foodType);
+            }
+
             // Notify game systems
             SnakeController snake = FindObjectOfType<SnakeController>();
             if (snake != null)
             {
-                snake.AddSegment();
+                // Normal food and most special foods add a segment
+                // Shrink and SuperGrowth handle their own segment logic
+                if (foodType != FoodType.Shrink && foodType != FoodType.SuperGrowth)
+                {
+                    snake.AddSegment();
+                }
             }
 
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.OnFoodEaten();
+                GameManager.Instance.OnFoodEaten(pointMultiplier);
+
+                // Track for point multiplier effect
+                if (SpecialFoodManager.Instance != null)
+                {
+                    SpecialFoodManager.Instance.OnFoodEatenForMultiplier();
+                }
             }
 
-            Debug.Log("Food eaten!");
+            Debug.Log($"Food eaten: {foodType}!");
             Destroy(gameObject);
         }
 

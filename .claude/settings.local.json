@@ -4,7 +4,17 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git remote:*)",
-      "Bash(gh:*)"
+      "Bash(gh:*)",
+      "Bash(dir /b \"D:\\\\Users\\\\Victor\\\\snake-vr\")",
+      "Skill(superpowers:brainstorming)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(git -C \"D:\\\\Users\\\\Victor\\\\snake-vr\" status)",
+      "Bash(git -C \"D:\\\\Users\\\\Victor\\\\snake-vr\" log --oneline -5)",
+      "Bash(git -C \"D:\\\\Users\\\\Victor\\\\snake-vr\" add \"Assets/SnakeVR/Scripts/Interaction/\")",
+      "Bash(git -C \"D:\\\\Users\\\\Victor\\\\snake-vr\" commit -m \"$\\(cat <<''EOF''\nfeat: add GrabbableFood script for VR food grabbing\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(dir /s /b \"%USERPROFILE%\\\\.claude\")",
+      "Bash(cd:*)"
     ]
   }
 }

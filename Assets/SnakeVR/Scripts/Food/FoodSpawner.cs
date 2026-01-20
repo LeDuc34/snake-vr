@@ -7,7 +7,10 @@ namespace SnakeVR
         [Header("Food Settings")]
         [SerializeField] private GameObject foodPrefab;
         [SerializeField] private float foodSize = 0.2f;
-        [SerializeField] private Color foodColor = Color.red;
+        [SerializeField] private Color normalFoodColor = new Color(0.298f, 0.686f, 0.314f); // Green
+
+        [Header("Special Food")]
+        [SerializeField] private float specialFoodChance = 0.18f; // 18% chance for special food
 
         [Header("Spawn Area")]
         [SerializeField] private Vector3 spawnAreaSize = new Vector3(5f, 3f, 5f);
@@ -57,11 +60,24 @@ namespace SnakeVR
             currentFood = Instantiate(foodPrefab, spawnPosition, Quaternion.identity);
             currentFood.tag = "Food";
 
+            // Determine food type
+            FoodType foodType = DetermineSpawnType();
+
             // Add GrabbableFood component
-            if (currentFood.GetComponent<GrabbableFood>() == null)
+            GrabbableFood grabbable = currentFood.GetComponent<GrabbableFood>();
+            if (grabbable == null)
             {
-                currentFood.AddComponent<GrabbableFood>();
+                grabbable = currentFood.AddComponent<GrabbableFood>();
             }
+            grabbable.SetFoodType(foodType);
+
+            // Add FoodVisual component and set color
+            FoodVisual visual = currentFood.GetComponent<FoodVisual>();
+            if (visual == null)
+            {
+                visual = currentFood.AddComponent<FoodVisual>();
+            }
+            visual.SetFoodType(foodType);
 
             // Add Rigidbody for physics
             Rigidbody rb = currentFood.GetComponent<Rigidbody>();
@@ -73,7 +89,44 @@ namespace SnakeVR
             rb.linearDamping = 2f; // Slow down thrown food
             rb.angularDamping = 2f;
 
-            Debug.Log($"Food spawned at {spawnPosition}");
+            Debug.Log($"Food spawned at {spawnPosition}: {foodType}");
+        }
+
+        private FoodType DetermineSpawnType()
+        {
+            // Check if special food should spawn
+            if (Random.value > specialFoodChance)
+            {
+                return FoodType.Normal;
+            }
+
+            // Get random special food type from manager
+            if (SpecialFoodManager.Instance != null)
+            {
+                return SpecialFoodManager.Instance.GetRandomFoodType();
+            }
+
+            // Fallback: random special type if no manager
+            return GetRandomSpecialType();
+        }
+
+        private FoodType GetRandomSpecialType()
+        {
+            // Weighted random selection (fallback if no SpecialFoodManager)
+            float roll = Random.value;
+
+            // Common (25% each within special pool)
+            if (roll < 0.25f) return FoodType.SpeedBoost;
+            if (roll < 0.50f) return FoodType.SlowMo;
+            if (roll < 0.75f) return FoodType.SuperGrowth;
+
+            // Uncommon (15% each)
+            if (roll < 0.85f) return FoodType.Shrink;
+            if (roll < 0.95f) return FoodType.PointMultiplier;
+
+            // Rare (5% each)
+            if (roll < 0.975f) return FoodType.GhostMode;
+            return FoodType.Magnet;
         }
 
         private Vector3 GetRandomSpawnPosition()
@@ -116,12 +169,12 @@ namespace SnakeVR
                 col.isTrigger = false; // Changed from true - needed for physics bouncing
             }
 
-            // Set color
+            // Set default color (will be overwritten by FoodVisual)
             Renderer renderer = food.GetComponent<Renderer>();
             if (renderer != null)
             {
                 Material mat = new Material(Shader.Find("Standard"));
-                mat.color = foodColor;
+                mat.color = normalFoodColor;
                 mat.SetFloat("_Metallic", 0.5f);
                 mat.SetFloat("_Glossiness", 0.8f);
                 renderer.material = mat;

@@ -38,13 +38,20 @@ namespace SnakeVR
 
         public void MoveTo(Vector3 targetPosition)
         {
-            // Smooth movement
+            // Smooth movement (legacy, kept for compatibility)
             transform.position = Vector3.SmoothDamp(
                 transform.position,
                 targetPosition,
                 ref velocity,
                 smoothTime
             );
+        }
+
+        public void SetPositionAndRotation(Vector3 position, Quaternion rotation)
+        {
+            // Direct positioning for path-following system
+            transform.position = position;
+            transform.rotation = rotation;
         }
 
         public void SetColor(Color color)
