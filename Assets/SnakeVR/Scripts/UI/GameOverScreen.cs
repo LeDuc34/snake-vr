@@ -193,13 +193,13 @@ namespace SnakeVR.UI
                 {
                     if (GameManager.Instance != null)
                     {
-                        GameManager.Instance.RestartGame();
+                        GameManager.Instance.StartGame();
                     }
                 });
             }
             else if (GameManager.Instance != null)
             {
-                GameManager.Instance.RestartGame();
+                GameManager.Instance.StartGame();
             }
         }
 
