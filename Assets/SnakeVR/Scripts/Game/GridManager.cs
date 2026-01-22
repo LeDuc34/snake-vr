@@ -24,6 +24,7 @@ namespace SnakeVR
 
         [Header("Wall Settings")]
         [SerializeField] private GameObject wallPrefab;
+        [Tooltip("Assign TronGridWall material from Assets/SnakeVR/Materials/")]
         [SerializeField] private Material wallMaterial;
 
         private GameObject wallsContainer;

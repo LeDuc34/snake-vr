@@ -390,7 +390,7 @@ namespace SnakeVR
 
         private void OnTriggerEnter(Collider other)
         {
-            // Food is now handled by GrabbableFood + HandGrabber
+            // Food is now handled by GrabbableFood + XRGrabInteractable
             // Only handle game over conditions here
 
             if (other.CompareTag("Wall"))
@@ -431,6 +431,16 @@ namespace SnakeVR
         public int GetSegmentCount()
         {
             return segments.Count;
+        }
+
+        /// <summary>
+        /// Repositions the snake head (XR Origin) to the starting position.
+        /// Called on game over to bring the player back to center.
+        /// </summary>
+        public void RepositionToStart()
+        {
+            headTransform.position = new Vector3(0, 1.5f, 0);
+            headTransform.rotation = Quaternion.LookRotation(Vector3.forward);
         }
     }
 }

@@ -1,31 +1,38 @@
 using UnityEngine;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace SnakeVR
 {
-    public enum FoodState
-    {
-        Free,
-        Held
-    }
-
+    /// <summary>
+    /// Food that can be grabbed using XR Interaction Toolkit and eaten by bringing to mouth.
+    /// </summary>
+    [RequireComponent(typeof(XRGrabInteractable))]
     public class GrabbableFood : MonoBehaviour
     {
         [Header("Settings")]
         [SerializeField] private float eatDistance = 0.3f;
 
-        private FoodState currentState = FoodState.Free;
-        private Transform holdingHand;
-        private Rigidbody rb;
-        private Collider col;
+        private XRGrabInteractable grabInteractable;
         private Transform headTransform;
+        private bool isHeld = false;
 
         // Food type for special effects
         private FoodType foodType = FoodType.Normal;
 
         private void Awake()
         {
-            rb = GetComponent<Rigidbody>();
-            col = GetComponent<Collider>();
+            // Get or add XRGrabInteractable
+            grabInteractable = GetComponent<XRGrabInteractable>();
+            if (grabInteractable == null)
+            {
+                grabInteractable = gameObject.AddComponent<XRGrabInteractable>();
+            }
+
+            // Configure grab interactable
+            grabInteractable.movementType = XRBaseInteractable.MovementType.VelocityTracking;
+            grabInteractable.throwOnDetach = true;
 
             // Find the VR camera (head)
             Camera mainCam = Camera.main;
@@ -35,23 +42,47 @@ namespace SnakeVR
             }
         }
 
+        private void OnEnable()
+        {
+            if (grabInteractable != null)
+            {
+                grabInteractable.selectEntered.AddListener(OnGrabbed);
+                grabInteractable.selectExited.AddListener(OnReleased);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (grabInteractable != null)
+            {
+                grabInteractable.selectEntered.RemoveListener(OnGrabbed);
+                grabInteractable.selectExited.RemoveListener(OnReleased);
+            }
+        }
+
         private void Update()
         {
-            if (currentState == FoodState.Held && holdingHand != null)
+            if (isHeld && headTransform != null)
             {
-                // Follow the hand
-                transform.position = holdingHand.position;
-
                 // Check if close to head (eat)
-                if (headTransform != null)
+                float distanceToHead = Vector3.Distance(transform.position, headTransform.position);
+                if (distanceToHead < eatDistance)
                 {
-                    float distanceToHead = Vector3.Distance(transform.position, headTransform.position);
-                    if (distanceToHead < eatDistance)
-                    {
-                        Eat();
-                    }
+                    Eat();
                 }
             }
+        }
+
+        private void OnGrabbed(SelectEnterEventArgs args)
+        {
+            isHeld = true;
+            Debug.Log($"Food grabbed: {foodType}");
+        }
+
+        private void OnReleased(SelectExitEventArgs args)
+        {
+            isHeld = false;
+            Debug.Log($"Food released: {foodType}");
         }
 
         public void SetFoodType(FoodType type)
@@ -64,54 +95,23 @@ namespace SnakeVR
             return foodType;
         }
 
-        public bool CanBeGrabbed()
-        {
-            return currentState == FoodState.Free;
-        }
-
-        public void Grab(Transform hand)
-        {
-            if (currentState != FoodState.Free) return;
-
-            currentState = FoodState.Held;
-            holdingHand = hand;
-
-            // Disable physics while held
-            if (rb != null)
-            {
-                rb.isKinematic = true;
-            }
-            if (col != null)
-            {
-                col.enabled = false;
-            }
-
-            Debug.Log($"Food grabbed: {foodType}");
-        }
-
-        public void Release(Vector3 velocity)
-        {
-            if (currentState != FoodState.Held) return;
-
-            currentState = FoodState.Free;
-            holdingHand = null;
-
-            // Re-enable physics
-            if (rb != null)
-            {
-                rb.isKinematic = false;
-                rb.linearVelocity = velocity;
-            }
-            if (col != null)
-            {
-                col.enabled = true;
-            }
-
-            Debug.Log("Food released with velocity: " + velocity);
-        }
-
         private void Eat()
         {
+            // Force release from interactor before destroying
+            if (grabInteractable != null && grabInteractable.isSelected)
+            {
+                // Get the interactor and force deselect
+                var interactor = grabInteractable.firstInteractorSelecting;
+                if (interactor != null)
+                {
+                    var interactionManager = grabInteractable.interactionManager;
+                    if (interactionManager != null)
+                    {
+                        interactionManager.SelectExit(interactor, grabInteractable);
+                    }
+                }
+            }
+
             // Apply special food effect
             if (foodType != FoodType.Normal && SpecialFoodManager.Instance != null)
             {
@@ -126,7 +126,7 @@ namespace SnakeVR
             }
 
             // Notify game systems
-            SnakeController snake = FindObjectOfType<SnakeController>();
+            SnakeController snake = FindFirstObjectByType<SnakeController>();
             if (snake != null)
             {
                 // Normal food and most special foods add a segment
@@ -150,11 +150,6 @@ namespace SnakeVR
 
             Debug.Log($"Food eaten: {foodType}!");
             Destroy(gameObject);
-        }
-
-        public FoodState GetState()
-        {
-            return currentState;
         }
     }
 }

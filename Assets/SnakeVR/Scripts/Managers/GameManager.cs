@@ -121,6 +121,17 @@ namespace SnakeVR
                 SpecialFoodManager.Instance.ClearAllEffects();
             }
 
+            // Reposition player to starting position
+            // Find SnakeController if not assigned
+            if (snakeController == null)
+            {
+                snakeController = FindObjectOfType<SnakeController>();
+            }
+            if (snakeController != null)
+            {
+                snakeController.RepositionToStart();
+            }
+
             ChangeState(GameState.GameOver);
             Debug.Log($"Game Over! Final Score: {currentScore}");
         }

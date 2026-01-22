@@ -1,12 +1,15 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using TMPro;
 
 namespace SnakeVR.UI
 {
     /// <summary>
-    /// Arcade-style menu button with hover effects and pointer interaction.
+    /// Arcade-style menu button using XR Interaction Toolkit's XRSimpleInteractable.
     /// </summary>
+    [RequireComponent(typeof(XRSimpleInteractable))]
     public class ArcadeMenuButton : MonoBehaviour
     {
         [Header("References")]
@@ -26,10 +29,10 @@ namespace SnakeVR.UI
         [Header("Events")]
         public UnityEvent OnClick;
 
+        private XRSimpleInteractable interactable;
         private bool isHovered = false;
         private float currentScale = 1f;
         private Vector3 originalScale;
-        private Material textMaterial;
 
         private void Awake()
         {
@@ -50,11 +53,38 @@ namespace SnakeVR.UI
                 }
             }
 
+            // Get or add XRSimpleInteractable
+            interactable = GetComponent<XRSimpleInteractable>();
+            if (interactable == null)
+            {
+                interactable = gameObject.AddComponent<XRSimpleInteractable>();
+            }
+
             originalScale = transform.localScale;
 
             if (buttonText != null)
             {
                 buttonText.color = normalColor;
+            }
+        }
+
+        private void OnEnable()
+        {
+            if (interactable != null)
+            {
+                interactable.hoverEntered.AddListener(OnHoverEntered);
+                interactable.hoverExited.AddListener(OnHoverExited);
+                interactable.selectEntered.AddListener(OnSelectEntered);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (interactable != null)
+            {
+                interactable.hoverEntered.RemoveListener(OnHoverEntered);
+                interactable.hoverExited.RemoveListener(OnHoverExited);
+                interactable.selectEntered.RemoveListener(OnSelectEntered);
             }
         }
 
@@ -64,6 +94,21 @@ namespace SnakeVR.UI
             float targetScale = isHovered ? hoverScale : normalScale;
             currentScale = Mathf.Lerp(currentScale, targetScale, Time.unscaledDeltaTime * scaleSpeed);
             transform.localScale = originalScale * currentScale;
+        }
+
+        private void OnHoverEntered(HoverEnterEventArgs args)
+        {
+            SetHovered(true);
+        }
+
+        private void OnHoverExited(HoverExitEventArgs args)
+        {
+            SetHovered(false);
+        }
+
+        private void OnSelectEntered(SelectEnterEventArgs args)
+        {
+            Click();
         }
 
         public void SetHovered(bool hovered)
@@ -95,7 +140,6 @@ namespace SnakeVR.UI
         {
             if (buttonText != null)
             {
-                Color original = buttonText.color;
                 buttonText.color = Color.white;
                 yield return new WaitForSecondsRealtime(0.1f);
                 buttonText.color = isHovered ? hoverColor : normalColor;

@@ -9,6 +9,27 @@ This guide walks through setting up the retro arcade UI system in Unity.
 
 ---
 
+## Unity Anchor Reference
+
+Dans Unity, les anchors sont définis avec **Anchor Min** et **Anchor Max** (valeurs X, Y de 0 à 1).
+
+| Position | Anchor Min | Anchor Max | Pivot |
+|----------|------------|------------|-------|
+| Top-Left | (0, 1) | (0, 1) | (0, 1) |
+| Top-Center | (0.5, 1) | (0.5, 1) | (0.5, 1) |
+| Top-Right | (1, 1) | (1, 1) | (1, 1) |
+| Middle-Left | (0, 0.5) | (0, 0.5) | (0, 0.5) |
+| Middle-Center | (0.5, 0.5) | (0.5, 0.5) | (0.5, 0.5) |
+| Middle-Right | (1, 0.5) | (1, 0.5) | (1, 0.5) |
+| Bottom-Left | (0, 0) | (0, 0) | (0, 0) |
+| Bottom-Center | (0.5, 0) | (0.5, 0) | (0.5, 0) |
+| Bottom-Right | (1, 0) | (1, 0) | (1, 0) |
+| Stretch (fill) | (0, 0) | (1, 1) | (0.5, 0.5) |
+
+**Note**: Quand Min = Max, l'élément est ancré à un point fixe. Quand Min ≠ Max, l'élément s'étire avec son parent.
+
+---
+
 ## Step 1: Import Pixel Font
 
 1. Download "Press Start 2P" font (TTF file)
@@ -72,7 +93,7 @@ All elements below are children of `HUDCanvas`.
 1. Right-click `HUDCanvas` → **UI → Text - TextMeshPro**
 2. Name it `ScoreText`
 3. RectTransform:
-   - **Anchor**: Top-Left
+   - **Anchor Min**: (0, 1), **Anchor Max**: (0, 1)
    - **Pivot**: (0, 1)
    - **Pos X**: 50, **Pos Y**: -50
    - **Width**: 400, **Height**: 60
@@ -88,7 +109,7 @@ All elements below are children of `HUDCanvas`.
 1. Right-click `HUDCanvas` → **UI → Text - TextMeshPro**
 2. Name it `LengthText`
 3. RectTransform:
-   - **Anchor**: Top-Right
+   - **Anchor Min**: (1, 1), **Anchor Max**: (1, 1)
    - **Pivot**: (1, 1)
    - **Pos X**: -50, **Pos Y**: -50
    - **Width**: 300, **Height**: 50
@@ -104,7 +125,7 @@ All elements below are children of `HUDCanvas`.
 1. Right-click `HUDCanvas` → **UI → Text - TextMeshPro**
 2. Name it `SpeedText`
 3. RectTransform:
-   - **Anchor**: Top-Right
+   - **Anchor Min**: (1, 1), **Anchor Max**: (1, 1)
    - **Pivot**: (1, 1)
    - **Pos X**: -50, **Pos Y**: -100
    - **Width**: 300, **Height**: 50
@@ -120,7 +141,7 @@ All elements below are children of `HUDCanvas`.
 1. Right-click `HUDCanvas` → **UI → Text - TextMeshPro**
 2. Name it `HighScoreText`
 3. RectTransform:
-   - **Anchor**: Bottom-Left
+   - **Anchor Min**: (0, 0), **Anchor Max**: (0, 0)
    - **Pivot**: (0, 0)
    - **Pos X**: 50, **Pos Y**: 50
    - **Width**: 400, **Height**: 50
@@ -136,7 +157,7 @@ All elements below are children of `HUDCanvas`.
 1. Right-click `HUDCanvas` → **UI → Text - TextMeshPro**
 2. Name it `TimeText`
 3. RectTransform:
-   - **Anchor**: Bottom-Right
+   - **Anchor Min**: (1, 0), **Anchor Max**: (1, 0)
    - **Pivot**: (1, 0)
    - **Pos X**: -50, **Pos Y**: 50
    - **Width**: 300, **Height**: 50
@@ -167,7 +188,7 @@ All elements below are children of `HUDCanvas`.
 2. Name it `MainMenu`
 3. Add component: **SnakeVR.UI.MainMenu**
 4. RectTransform:
-   - **Anchor**: Stretch
+   - **Anchor Min**: (0, 0), **Anchor Max**: (1, 1)
    - **Left/Right/Top/Bottom**: 0
 
 ### 4.2 Menu Background
@@ -183,7 +204,8 @@ All elements below are children of `HUDCanvas`.
 1. Right-click `MainMenu` → **UI → Text - TextMeshPro**
 2. Name it `TitleText`
 3. RectTransform:
-   - **Anchor**: Top-Center
+   - **Anchor Min**: (0.5, 1), **Anchor Max**: (0.5, 1)
+   - **Pivot**: (0.5, 1)
    - **Pos Y**: -150
    - **Width**: 800, **Height**: 120
 4. TextMeshPro settings:
@@ -201,7 +223,8 @@ All elements below are children of `HUDCanvas`.
 4. Add component: **Box Collider**
    - **Size**: (400, 80, 10)
 5. RectTransform:
-   - **Anchor**: Middle-Center
+   - **Anchor Min**: (0.5, 0.5), **Anchor Max**: (0.5, 0.5)
+   - **Pivot**: (0.5, 0.5)
    - **Pos Y**: 0
    - **Width**: 400, **Height**: 80
 6. Create child Text:
@@ -288,7 +311,8 @@ Drag each element to its slot.
 1. Right-click `MenuCanvas` → **UI → Text - TextMeshPro**
 2. Name it `CountdownText`
 3. RectTransform:
-   - **Anchor**: Middle-Center
+   - **Anchor Min**: (0.5, 0.5), **Anchor Max**: (0.5, 0.5)
+   - **Pivot**: (0.5, 0.5)
    - **Width**: 400, **Height**: 200
 4. TextMeshPro settings:
    - **Text**: `3`
