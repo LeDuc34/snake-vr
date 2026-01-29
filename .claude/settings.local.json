@@ -14,7 +14,10 @@
       "Bash(git -C \"D:\\\\Users\\\\Victor\\\\snake-vr\" add \"Assets/SnakeVR/Scripts/Interaction/\")",
       "Bash(git -C \"D:\\\\Users\\\\Victor\\\\snake-vr\" commit -m \"$\\(cat <<''EOF''\nfeat: add GrabbableFood script for VR food grabbing\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(dir /s /b \"%USERPROFILE%\\\\.claude\")",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.unity3d.com)",
+      "WebFetch(domain:developers.meta.com)"
     ]
   }
 }

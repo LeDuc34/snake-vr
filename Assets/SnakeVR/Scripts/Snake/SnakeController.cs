@@ -48,10 +48,6 @@ namespace SnakeVR
         private float speedMultiplier = 1f;
         private bool isGhostMode = false;
 
-#if UNITY_EDITOR
-        // Dev mode: press P to freeze snake movement for testing
-        private bool devModeFreeze = false;
-#endif
 
         private void Awake()
         {
@@ -72,19 +68,7 @@ namespace SnakeVR
                 return;
             }
 
-#if UNITY_EDITOR
-            // Dev mode: P to toggle freeze
-            if (Keyboard.current != null && Keyboard.current.pKey.wasPressedThisFrame)
-            {
-                devModeFreeze = !devModeFreeze;
-                Debug.Log($"[DEV] Snake movement {(devModeFreeze ? "FROZEN" : "RESUMED")} - Press P to toggle");
-            }
-
-            if (devModeFreeze)
-            {
-                return; // Skip movement, allow testing grab mechanics
-            }
-#endif
+            // Dev mode freeze removed - use P key for proper pause via VRInputManager
 
             HandleInput();
             MoveSnake();
@@ -361,6 +345,12 @@ namespace SnakeVR
                         Destroy(segment.gameObject);
                     }
                 }
+            }
+
+            // Notify UI of length change
+            if (UI.UIManager.Instance != null)
+            {
+                UI.UIManager.Instance.UpdateSnakeLength(segments.Count + 1);
             }
 
             Debug.Log($"Removed {toRemove} segments. Snake length: {segments.Count + 1}");

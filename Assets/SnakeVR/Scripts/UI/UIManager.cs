@@ -62,7 +62,15 @@ namespace SnakeVR.UI
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnGameStateChanged += OnGameStateChanged;
+                Debug.Log("[UIManager] Subscribed to OnGameStateChanged");
             }
+            else
+            {
+                Debug.LogError("[UIManager] GameManager.Instance is NULL! Cannot subscribe to events.");
+            }
+
+            // Debug references
+            Debug.Log($"[UIManager] References - HUD: {(hud != null ? "OK" : "NULL")}, PauseMenu: {(pauseMenu != null ? "OK" : "NULL")}, MainMenu: {(mainMenu != null ? "OK" : "NULL")}");
 
             // Initial state - show main menu
             HideAllUI();
@@ -79,6 +87,8 @@ namespace SnakeVR.UI
 
         private void OnGameStateChanged(GameState newState)
         {
+            Debug.Log($"[UIManager] OnGameStateChanged received: {newState}");
+
             switch (newState)
             {
                 case GameState.Menu:
@@ -92,6 +102,7 @@ namespace SnakeVR.UI
                     break;
 
                 case GameState.Paused:
+                    Debug.Log($"[UIManager] Paused - HUD null? {hud == null}, PauseMenu null? {pauseMenu == null}");
                     HideHUD();
                     ShowPauseMenu();
                     break;
@@ -119,7 +130,15 @@ namespace SnakeVR.UI
 
         private void HideHUD()
         {
-            if (hud != null) hud.gameObject.SetActive(false);
+            if (hud != null)
+            {
+                Debug.Log("[UIManager] Hiding HUD");
+                hud.gameObject.SetActive(false);
+            }
+            else
+            {
+                Debug.LogError("[UIManager] hud is NULL - cannot hide!");
+            }
         }
 
         private void ShowHUD()
@@ -139,8 +158,17 @@ namespace SnakeVR.UI
 
         private void ShowPauseMenu()
         {
+            Debug.Log("[UIManager] ShowPauseMenu called");
             HideAllMenus();
-            if (pauseMenu != null) pauseMenu.Show();
+            if (pauseMenu != null)
+            {
+                Debug.Log("[UIManager] Calling pauseMenu.Show()");
+                pauseMenu.Show();
+            }
+            else
+            {
+                Debug.LogError("[UIManager] pauseMenu is NULL!");
+            }
         }
 
         private void ShowGameOverScreen()

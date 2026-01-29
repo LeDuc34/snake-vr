@@ -44,19 +44,23 @@ namespace SnakeVR.UI
 
         private void Start()
         {
-            // Subscribe to GameManager events
+            // Initial update
+            UpdateAllDisplays();
+        }
+
+        private void OnEnable()
+        {
+            // Subscribe to GameManager events when enabled
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnScoreChanged += OnScoreChanged;
                 GameManager.Instance.OnGameStateChanged += OnGameStateChanged;
             }
-
-            // Initial update
-            UpdateAllDisplays();
         }
 
-        private void OnDestroy()
+        private void OnDisable()
         {
+            // Unsubscribe when disabled to avoid memory leaks
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnScoreChanged -= OnScoreChanged;

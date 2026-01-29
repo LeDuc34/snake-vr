@@ -1,9 +1,5 @@
 using UnityEngine;
-using UnityEngine.XR;
-using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.InputSystem;
-using XRInputDevice = UnityEngine.XR.InputDevice;
-using XRCommonUsages = UnityEngine.XR.CommonUsages;
 
 namespace SnakeVR
 {
@@ -15,26 +11,79 @@ namespace SnakeVR
         RightControllerDirection
     }
 
+    /// <summary>
+    /// Action-based VR Input Manager compatible with XR Interaction Toolkit 3.x
+    /// Uses InputActionAsset for proper binding resolution with XR Simulator and real hardware.
+    /// Assign "XRI Default Input Actions" in the inspector.
+    /// </summary>
     public class VRInputManager : MonoBehaviour
     {
         [Header("Control Settings")]
         [SerializeField] private ControlScheme controlScheme = ControlScheme.LeftJoystick;
         [SerializeField] private float joystickDeadzone = 0.3f;
 
+        [Header("Input Action Asset")]
+        [Tooltip("Assign 'XRI Default Input Actions' from Samples/XR Interaction Toolkit/Starter Assets")]
+        [SerializeField] private InputActionAsset inputActionAsset;
+
         [Header("Head Gaze Settings")]
         [SerializeField] private Transform cameraTransform;
         [SerializeField] private float gazeSmoothing = 5f;
 
-        [Header("Controller References")]
-        [SerializeField] private XRNode leftControllerNode = XRNode.LeftHand;
-        [SerializeField] private XRNode rightControllerNode = XRNode.RightHand;
-
-        // Input devices
-        private XRInputDevice leftController;
-        private XRInputDevice rightController;
+        // Resolved actions from the asset
+        private InputAction leftThumbstickAction;
+        private InputAction rightThumbstickAction;
+        private InputAction leftMenuAction;
+        private InputAction rightPrimaryButtonAction;
 
         // Cached input
         private Vector2 currentInput = Vector2.zero;
+
+        // Button state tracking for "pressed this frame" detection
+        private bool menuWasPressed = false;
+        private bool startWasPressed = false;
+
+        private void Awake()
+        {
+            ResolveActions();
+        }
+
+        private void OnEnable()
+        {
+            if (inputActionAsset != null)
+            {
+                inputActionAsset.Enable();
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (inputActionAsset != null)
+            {
+                inputActionAsset.Disable();
+            }
+        }
+
+        private void ResolveActions()
+        {
+            if (inputActionAsset == null)
+            {
+                Debug.LogError("[VRInputManager] InputActionAsset not assigned! Assign 'XRI Default Input Actions' in the inspector.");
+                return;
+            }
+
+            // Find actions from the XRI Default Input Actions asset
+            // Action Maps are "XRI Left" and "XRI Right"
+            leftThumbstickAction = inputActionAsset.FindAction("XRI Left/Thumbstick");
+            rightThumbstickAction = inputActionAsset.FindAction("XRI Right/Thumbstick");
+            leftMenuAction = inputActionAsset.FindAction("XRI Left/Menu");
+            rightPrimaryButtonAction = inputActionAsset.FindAction("XRI Right/Primary Button");
+
+            if (leftThumbstickAction == null)
+                Debug.LogWarning("[VRInputManager] Could not find 'XRI LeftHand Interaction/Thumbstick' action");
+            if (rightThumbstickAction == null)
+                Debug.LogWarning("[VRInputManager] Could not find 'XRI RightHand Interaction/Thumbstick' action");
+        }
 
         private void Start()
         {
@@ -47,44 +96,35 @@ namespace SnakeVR
                     cameraTransform = mainCam.transform;
                 }
             }
-
-            // Get controllers
-            leftController = InputDevices.GetDeviceAtXRNode(leftControllerNode);
-            rightController = InputDevices.GetDeviceAtXRNode(rightControllerNode);
         }
 
         private void Update()
         {
-            // Refresh devices if not valid
-            if (!leftController.isValid)
-            {
-                leftController = InputDevices.GetDeviceAtXRNode(leftControllerNode);
-            }
-            if (!rightController.isValid)
-            {
-                rightController = InputDevices.GetDeviceAtXRNode(rightControllerNode);
-            }
-
             // Update input based on control scheme
             UpdateInput();
 
-            // Check for pause button (Menu button on either controller)
-            if (GetMenuButtonDown())
+            // Check for menu button (pressed this frame)
+            bool menuPressed = GetMenuButton();
+            if (menuPressed && !menuWasPressed)
             {
+                Debug.Log("[VRInputManager] Menu/Pause button pressed!");
                 if (GameManager.Instance != null)
                 {
                     GameManager.Instance.PauseGame();
                 }
             }
+            menuWasPressed = menuPressed;
 
-            // Check for start button (A button on right controller)
-            if (GetStartButtonDown())
+            // Check for start button (pressed this frame)
+            bool startPressed = GetStartButton();
+            if (startPressed && !startWasPressed)
             {
                 if (GameManager.Instance != null && GameManager.Instance.GetCurrentState() == GameState.Menu)
                 {
                     GameManager.Instance.StartGame();
                 }
             }
+            startWasPressed = startPressed;
         }
 
         private void UpdateInput()
@@ -92,11 +132,21 @@ namespace SnakeVR
             switch (controlScheme)
             {
                 case ControlScheme.LeftJoystick:
-                    currentInput = GetJoystickInput(leftController);
+                    currentInput = GetThumbstickInput(leftThumbstickAction);
+                    // Fallback to right if left has no input
+                    if (currentInput == Vector2.zero)
+                    {
+                        currentInput = GetThumbstickInput(rightThumbstickAction);
+                    }
                     break;
 
                 case ControlScheme.RightJoystick:
-                    currentInput = GetJoystickInput(rightController);
+                    currentInput = GetThumbstickInput(rightThumbstickAction);
+                    // Fallback to left if right has no input
+                    if (currentInput == Vector2.zero)
+                    {
+                        currentInput = GetThumbstickInput(leftThumbstickAction);
+                    }
                     break;
 
                 case ControlScheme.HeadGaze:
@@ -104,45 +154,25 @@ namespace SnakeVR
                     break;
 
                 case ControlScheme.RightControllerDirection:
-                    currentInput = GetControllerDirectionInput(rightController);
+                    currentInput = GetControllerDirectionInput();
                     break;
             }
         }
 
-        private Vector2 GetJoystickInput(XRInputDevice controller)
+        private Vector2 GetThumbstickInput(InputAction action)
         {
-            Vector2 joystickValue = Vector2.zero;
+            if (action == null)
+                return Vector2.zero;
 
-            if (controller.isValid)
-            {
-                // Try primary 2D axis (thumbstick)
-                if (controller.TryGetFeatureValue(XRCommonUsages.primary2DAxis, out Vector2 axis))
-                {
-                    joystickValue = axis;
-                }
-            }
-
-            // Fallback: Keyboard input for testing (IJKL keys)
-            if (joystickValue == Vector2.zero && Keyboard.current != null)
-            {
-                float x = 0f;
-                float z = 0f;
-
-                if (Keyboard.current.iKey.isPressed) z = 1f;  // Forward
-                if (Keyboard.current.kKey.isPressed) z = -1f; // Backward
-                if (Keyboard.current.jKey.isPressed) x = -1f; // Left
-                if (Keyboard.current.lKey.isPressed) x = 1f;  // Right
-
-                joystickValue = new Vector2(x, z);
-            }
+            Vector2 value = action.ReadValue<Vector2>();
 
             // Apply deadzone
-            if (joystickValue.magnitude < joystickDeadzone)
+            if (value.magnitude < joystickDeadzone)
             {
-                joystickValue = Vector2.zero;
+                return Vector2.zero;
             }
 
-            return joystickValue;
+            return value;
         }
 
         private Vector2 GetHeadGazeInput()
@@ -163,21 +193,10 @@ namespace SnakeVR
             return currentInput;
         }
 
-        private Vector2 GetControllerDirectionInput(XRInputDevice controller)
+        private Vector2 GetControllerDirectionInput()
         {
-            if (!controller.isValid)
-                return Vector2.zero;
-
-            // Get controller rotation
-            if (controller.TryGetFeatureValue(XRCommonUsages.deviceRotation, out Quaternion rotation))
-            {
-                Vector3 forward = rotation * Vector3.forward;
-                forward.y = 0; // Ignore vertical component
-                forward.Normalize();
-
-                return new Vector2(forward.x, forward.z);
-            }
-
+            // This would need a rotation action from the asset
+            // For now, return zero - can be implemented if needed
             return Vector2.zero;
         }
 
@@ -186,33 +205,38 @@ namespace SnakeVR
             return currentInput;
         }
 
-        private bool GetMenuButtonDown()
+        private bool GetMenuButton()
         {
-            bool leftMenu = false, rightMenu = false;
-
-            if (leftController.isValid)
+            // Check left menu button
+            if (leftMenuAction != null && leftMenuAction.IsPressed())
             {
-                leftController.TryGetFeatureValue(XRCommonUsages.menuButton, out leftMenu);
-            }
-            if (rightController.isValid)
-            {
-                rightController.TryGetFeatureValue(XRCommonUsages.menuButton, out rightMenu);
+                return true;
             }
 
-            return leftMenu || rightMenu;
+            // Keyboard fallback: P key
+            if (Keyboard.current != null && Keyboard.current.pKey.isPressed)
+            {
+                return true;
+            }
+
+            return false;
         }
 
-        private bool GetStartButtonDown()
+        private bool GetStartButton()
         {
-            bool pressed = false;
-
-            if (rightController.isValid)
+            // Check right primary button (A on Quest)
+            if (rightPrimaryButtonAction != null && rightPrimaryButtonAction.IsPressed())
             {
-                // Try primary button (A button on Quest)
-                rightController.TryGetFeatureValue(XRCommonUsages.primaryButton, out pressed);
+                return true;
             }
 
-            return pressed;
+            // Keyboard fallback: Space key
+            if (Keyboard.current != null && Keyboard.current.spaceKey.isPressed)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         public void SetControlScheme(ControlScheme scheme)
@@ -231,10 +255,13 @@ namespace SnakeVR
         {
             if (Debug.isDebugBuild)
             {
+                bool leftConnected = leftThumbstickAction?.activeControl != null;
+                bool rightConnected = rightThumbstickAction?.activeControl != null;
+
                 GUI.Label(new Rect(10, 10, 300, 20), $"Control: {controlScheme}");
                 GUI.Label(new Rect(10, 30, 300, 20), $"Input: {currentInput}");
-                GUI.Label(new Rect(10, 50, 300, 20), $"Left: {leftController.isValid}");
-                GUI.Label(new Rect(10, 70, 300, 20), $"Right: {rightController.isValid}");
+                GUI.Label(new Rect(10, 50, 300, 20), $"Left Controller: {(leftConnected ? "Connected" : "Not found")}");
+                GUI.Label(new Rect(10, 70, 300, 20), $"Right Controller: {(rightConnected ? "Connected" : "Not found")}");
             }
         }
     }

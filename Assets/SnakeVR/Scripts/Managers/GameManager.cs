@@ -75,6 +75,12 @@ namespace SnakeVR
             {
                 playTime += Time.deltaTime;
             }
+
+            // Debug: Log state every 2 seconds
+            if (Time.frameCount % 120 == 0)
+            {
+                Debug.Log($"[GameManager] State: {currentState}, PlayTime: {playTime:F1}s");
+            }
         }
 
         public void StartGame()
@@ -103,12 +109,16 @@ namespace SnakeVR
 
         public void PauseGame()
         {
+            Debug.Log($"[GameManager] PauseGame called. Current state: {currentState}");
+
             if (currentState == GameState.Playing)
             {
+                Debug.Log("[GameManager] Changing to Paused state");
                 ChangeState(GameState.Paused);
             }
             else if (currentState == GameState.Paused)
             {
+                Debug.Log("[GameManager] Changing to Playing state");
                 ChangeState(GameState.Playing);
             }
         }
@@ -215,7 +225,9 @@ namespace SnakeVR
             switch (currentState)
             {
                 case GameState.Menu:
-                    Time.timeScale = 0f;
+                    // Keep timeScale = 1 for VR tracking and UI interaction
+                    Time.timeScale = 1f;
+                    Time.fixedDeltaTime = savedFixedDeltaTime;
                     break;
                 case GameState.Playing:
                     // Apply current game time scale (for slow-mo effect)
@@ -223,10 +235,14 @@ namespace SnakeVR
                     Time.fixedDeltaTime = savedFixedDeltaTime * gameTimeScale;
                     break;
                 case GameState.Paused:
-                    Time.timeScale = 0f;
+                    // Keep timeScale = 1 for VR tracking and UI interaction
+                    Time.timeScale = 1f;
+                    Time.fixedDeltaTime = savedFixedDeltaTime;
                     break;
                 case GameState.GameOver:
-                    Time.timeScale = 0f;
+                    // Keep timeScale = 1 for VR tracking and UI interaction
+                    Time.timeScale = 1f;
+                    Time.fixedDeltaTime = savedFixedDeltaTime;
                     break;
             }
         }

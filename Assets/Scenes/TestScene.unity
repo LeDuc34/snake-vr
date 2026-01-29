@@ -150,10 +150,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SnakeVR.VRInputManager
   controlScheme: 0
   joystickDeadzone: 0.3
+  inputActionAsset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
   cameraTransform: {fileID: 0}
   gazeSmoothing: 5
-  leftControllerNode: 4
-  rightControllerNode: 5
 --- !u!4 &38216663
 Transform:
   m_ObjectHideFlags: 0
