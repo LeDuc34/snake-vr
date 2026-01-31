@@ -5,8 +5,8 @@ using UnityEngine.InputSystem;
 namespace SnakeVR
 {
     /// <summary>
-    /// Controls the snake movement.
-    /// IMPORTANT: Attach this script to the XR Origin (XR Rig) GameObject.
+    /// Controls the snake movement using native XRI Input Actions.
+    /// Attach this script to the XR Origin (XR Rig) GameObject.
     /// The XR Origin IS the snake head - the camera will move with the snake!
     /// </summary>
     public class SnakeController : MonoBehaviour
@@ -20,6 +20,15 @@ namespace SnakeVR
         [SerializeField] private float moveSpeed = 2f;
         [SerializeField] private float turnSpeed = 90f;
 
+        [Header("Input - Native XRI")]
+        [Tooltip("Reference to XRI Left/Thumbstick or XRI Right/Thumbstick action")]
+        [SerializeField] private InputActionReference thumbstickAction;
+        [SerializeField] private float joystickDeadzone = 0.3f;
+
+        [Header("Camera Reference")]
+        [Tooltip("La caméra VR (Main Camera) pour que les segments suivent sa position")]
+        [SerializeField] private Transform vrCamera;
+
         // Snake body
         private List<SnakeSegment> segments = new List<SnakeSegment>();
 
@@ -28,7 +37,7 @@ namespace SnakeVR
         {
             public Vector3 position;
             public Quaternion rotation;
-            public float distance; // cumulative distance from start
+            public float distance;
         }
         private List<PathPoint> path = new List<PathPoint>();
         private float totalDistance = 0f;
@@ -38,8 +47,7 @@ namespace SnakeVR
         private Vector3 targetDirection = Vector3.forward;
 
         // Input
-        private VRInputManager inputManager;
-        private bool inputProcessed = false; // Pour détecter les nouveaux inputs seulement
+        private bool inputProcessed = false;
 
         // The head is this transform (XR Origin)
         private Transform headTransform;
@@ -48,16 +56,29 @@ namespace SnakeVR
         private float speedMultiplier = 1f;
         private bool isGhostMode = false;
 
-
         private void Awake()
         {
-            // The XR Origin itself is the snake head
             headTransform = transform;
+        }
+
+        private void OnEnable()
+        {
+            if (thumbstickAction != null && thumbstickAction.action != null)
+            {
+                thumbstickAction.action.Enable();
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (thumbstickAction != null && thumbstickAction.action != null)
+            {
+                thumbstickAction.action.Disable();
+            }
         }
 
         private void Start()
         {
-            inputManager = FindObjectOfType<VRInputManager>();
             ResetSnake();
         }
 
@@ -68,84 +89,81 @@ namespace SnakeVR
                 return;
             }
 
-            // Dev mode freeze removed - use P key for proper pause via VRInputManager
-
             HandleInput();
             MoveSnake();
         }
 
         private void HandleInput()
         {
-            if (inputManager != null)
+            Vector2 input = GetThumbstickInput();
+
+            // Reset flag when joystick returns to center
+            if (input.magnitude < joystickDeadzone)
             {
-                Vector2 input = inputManager.GetMovementInput();
+                inputProcessed = false;
+                return;
+            }
 
-                // Reset flag when joystick returns to center
-                if (input.magnitude < 0.3f)
+            // Only process input once per joystick movement
+            if (inputProcessed)
+            {
+                return;
+            }
+
+            inputProcessed = true;
+
+            // Calculate new direction based on current rotation
+            Quaternion currentRotation = Quaternion.LookRotation(currentDirection);
+            Quaternion newRotation = currentRotation;
+
+            if (Mathf.Abs(input.x) > Mathf.Abs(input.y))
+            {
+                // Horizontal input (left/right)
+                if (input.x > 0)
                 {
-                    inputProcessed = false;
-                    return;
-                }
-
-                // Only process input once per joystick movement
-                if (inputProcessed)
-                {
-                    return;
-                }
-
-                // Mark as processed to ignore repeated inputs
-                inputProcessed = true;
-
-                // Calculate new direction based on current rotation
-                Quaternion currentRotation = Quaternion.LookRotation(currentDirection);
-                Quaternion newRotation = currentRotation;
-
-                if (Mathf.Abs(input.x) > Mathf.Abs(input.y))
-                {
-                    // Horizontal input (left/right) - rotate around Y axis
-                    if (input.x > 0)
-                    {
-                        // Right: +90° around Y
-                        newRotation = currentRotation * Quaternion.Euler(0, 90, 0);
-                    }
-                    else
-                    {
-                        // Left: -90° around Y
-                        newRotation = currentRotation * Quaternion.Euler(0, -90, 0);
-                    }
+                    newRotation = currentRotation * Quaternion.Euler(0, 90, 0);
                 }
                 else
                 {
-                    // Vertical input (up/down) - rotate around X axis
-                    if (input.y > 0)
-                    {
-                        // Up: -90° around X (pitch up)
-                        newRotation = currentRotation * Quaternion.Euler(-90, 0, 0);
-                    }
-                    else
-                    {
-                        // Down: +90° around X (pitch down)
-                        newRotation = currentRotation * Quaternion.Euler(90, 0, 0);
-                    }
-                }
-
-                // Extract new direction from rotation
-                Vector3 newDirection = newRotation * Vector3.forward;
-
-                // Don't allow 180 degree turns (going backwards)
-                float dot = Vector3.Dot(newDirection.normalized, currentDirection.normalized);
-                if (dot > -0.9f)
-                {
-                    // Apply rotation IMMEDIATELY
-                    currentDirection = newDirection.normalized;
-                    targetDirection = newDirection.normalized;
+                    newRotation = currentRotation * Quaternion.Euler(0, -90, 0);
                 }
             }
+            else
+            {
+                // Vertical input (up/down)
+                if (input.y > 0)
+                {
+                    newRotation = currentRotation * Quaternion.Euler(-90, 0, 0);
+                }
+                else
+                {
+                    newRotation = currentRotation * Quaternion.Euler(90, 0, 0);
+                }
+            }
+
+            Vector3 newDirection = newRotation * Vector3.forward;
+
+            // Don't allow 180 degree turns
+            float dot = Vector3.Dot(newDirection.normalized, currentDirection.normalized);
+            if (dot > -0.9f)
+            {
+                currentDirection = newDirection.normalized;
+                targetDirection = newDirection.normalized;
+            }
+        }
+
+        private Vector2 GetThumbstickInput()
+        {
+            if (thumbstickAction == null || thumbstickAction.action == null)
+            {
+                return Vector2.zero;
+            }
+
+            return thumbstickAction.action.ReadValue<Vector2>();
         }
 
         private void MoveSnake()
         {
-            // Smooth rotation towards target direction
             if (targetDirection != currentDirection)
             {
                 currentDirection = Vector3.RotateTowards(
@@ -158,27 +176,26 @@ namespace SnakeVR
 
             Vector3 previousPosition = headTransform.position;
 
-            // Move continuously in current direction (apply speed multiplier)
             headTransform.position += currentDirection * moveSpeed * speedMultiplier * Time.deltaTime;
             headTransform.rotation = Quaternion.LookRotation(currentDirection);
 
-            // Record path continuously
+            // Utiliser la position de la caméra VR pour le path (les segments suivent la caméra)
+            Transform pathReference = vrCamera != null ? vrCamera : headTransform;
+            Vector3 pathPosition = pathReference.position;
+
             float distanceMoved = Vector3.Distance(previousPosition, headTransform.position);
-            if (distanceMoved > 0.001f) // avoid duplicates
+            if (distanceMoved > 0.001f)
             {
                 totalDistance += distanceMoved;
                 path.Add(new PathPoint
                 {
-                    position = headTransform.position,
+                    position = pathPosition,
                     rotation = headTransform.rotation,
                     distance = totalDistance
                 });
             }
 
-            // Clean up old path points
             CleanupPath();
-
-            // Update segments every frame
             UpdateSegments();
         }
 
@@ -186,12 +203,9 @@ namespace SnakeVR
         {
             for (int i = 0; i < segments.Count; i++)
             {
-                // Each segment is at a fixed distance behind the previous one
                 float targetDistance = totalDistance - (i + 1) * segmentSpacing;
+                if (targetDistance < 0) continue;
 
-                if (targetDistance < 0) continue; // not enough path recorded yet
-
-                // Find position on path
                 (Vector3 pos, Quaternion rot) = GetPositionOnPath(targetDistance);
                 segments[i].SetPositionAndRotation(pos, rot);
             }
@@ -199,12 +213,10 @@ namespace SnakeVR
 
         private (Vector3, Quaternion) GetPositionOnPath(float targetDistance)
         {
-            // Find the two points to interpolate between
             for (int i = path.Count - 1; i > 0; i--)
             {
                 if (path[i].distance >= targetDistance && path[i - 1].distance <= targetDistance)
                 {
-                    // Interpolate between path[i-1] and path[i]
                     float segmentLength = path[i].distance - path[i - 1].distance;
                     if (segmentLength < 0.0001f) continue;
 
@@ -216,7 +228,6 @@ namespace SnakeVR
                 }
             }
 
-            // Fallback: last known point
             if (path.Count > 0)
                 return (path[path.Count - 1].position, path[path.Count - 1].rotation);
 
@@ -225,10 +236,7 @@ namespace SnakeVR
 
         private void CleanupPath()
         {
-            // Minimum required distance = last segment position
             float minRequiredDistance = totalDistance - (segments.Count + 2) * segmentSpacing;
-
-            // Remove points that are too old
             while (path.Count > 0 && path[0].distance < minRequiredDistance)
             {
                 path.RemoveAt(0);
@@ -237,7 +245,6 @@ namespace SnakeVR
 
         public void ResetSnake()
         {
-            // Clear existing segments
             foreach (var segment in segments)
             {
                 if (segment != null)
@@ -249,25 +256,23 @@ namespace SnakeVR
             path.Clear();
             totalDistance = 0f;
 
-            // Reset effect modifiers
             speedMultiplier = 1f;
             isGhostMode = false;
 
-            // Reset position and direction - Start above ground level
-            headTransform.position = new Vector3(0, 1.5f, 0);
+            headTransform.position = new Vector3(0, 0f, 0);
             currentDirection = Vector3.forward;
             targetDirection = Vector3.forward;
             headTransform.rotation = Quaternion.LookRotation(currentDirection);
 
-            // Initialize path with starting position
+            // Utiliser la position de la caméra VR pour le path initial
+            Transform pathReference = vrCamera != null ? vrCamera : headTransform;
             path.Add(new PathPoint
             {
-                position = headTransform.position,
+                position = pathReference.position,
                 rotation = headTransform.rotation,
                 distance = 0f
             });
 
-            // Create initial segments
             for (int i = 0; i < initialSegmentCount; i++)
             {
                 AddSegment();
@@ -284,7 +289,6 @@ namespace SnakeVR
             }
             else
             {
-                // Create default cube if no prefab
                 segmentObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 segmentObj.transform.localScale = Vector3.one * 0.25f;
                 segmentObj.transform.SetParent(transform);
@@ -296,7 +300,6 @@ namespace SnakeVR
                 segment = segmentObj.AddComponent<SnakeSegment>();
             }
 
-            // Position segment behind the last segment
             Vector3 position;
             if (segments.Count == 0)
             {
@@ -311,13 +314,10 @@ namespace SnakeVR
             segmentObj.transform.position = position;
             segments.Add(segment);
 
-            // Notify UI of length change
             if (UI.UIManager.Instance != null)
             {
                 UI.UIManager.Instance.UpdateSnakeLength(segments.Count + 1);
             }
-
-            Debug.Log($"Snake length: {segments.Count + 1}");
         }
 
         public void AddSegments(int count)
@@ -347,13 +347,10 @@ namespace SnakeVR
                 }
             }
 
-            // Notify UI of length change
             if (UI.UIManager.Instance != null)
             {
                 UI.UIManager.Instance.UpdateSnakeLength(segments.Count + 1);
             }
-
-            Debug.Log($"Removed {toRemove} segments. Snake length: {segments.Count + 1}");
         }
 
         public void SetSpeed(float speed)
@@ -364,13 +361,11 @@ namespace SnakeVR
         public void SetSpeedMultiplier(float multiplier)
         {
             speedMultiplier = multiplier;
-            Debug.Log($"Speed multiplier set to {multiplier}");
         }
 
         public void SetGhostMode(bool enabled)
         {
             isGhostMode = enabled;
-            Debug.Log($"Ghost mode: {enabled}");
         }
 
         public bool IsGhostMode()
@@ -380,11 +375,11 @@ namespace SnakeVR
 
         private void OnTriggerEnter(Collider other)
         {
-            // Food is now handled by GrabbableFood + XRGrabInteractable
-            // Only handle game over conditions here
+            Debug.Log($"[SnakeController] OnTriggerEnter: {other.name}, tag: {other.tag}");
 
             if (other.CompareTag("Wall"))
             {
+                Debug.Log("[SnakeController] Wall collision detected!");
                 if (GameManager.Instance != null)
                 {
                     GameManager.Instance.GameOver();
@@ -392,15 +387,20 @@ namespace SnakeVR
             }
             else if (other.CompareTag("SnakeBody"))
             {
-                // Ghost mode allows passing through own body
                 if (!isGhostMode)
                 {
+                    Debug.Log("[SnakeController] SnakeBody collision detected!");
                     if (GameManager.Instance != null)
                     {
                         GameManager.Instance.GameOver();
                     }
                 }
             }
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            Debug.Log($"[SnakeController] OnCollisionEnter: {collision.gameObject.name}, tag: {collision.gameObject.tag}");
         }
 
         public Transform GetHeadTransform()
@@ -423,13 +423,9 @@ namespace SnakeVR
             return segments.Count;
         }
 
-        /// <summary>
-        /// Repositions the snake head (XR Origin) to the starting position.
-        /// Called on game over to bring the player back to center.
-        /// </summary>
         public void RepositionToStart()
         {
-            headTransform.position = new Vector3(0, 1.5f, 0);
+            headTransform.position = new Vector3(0, 0f, 0);
             headTransform.rotation = Quaternion.LookRotation(Vector3.forward);
         }
     }
