@@ -2,7 +2,7 @@
 
 Jeu Snake en réalité virtuelle pour Meta Quest.
 
-## 🚀 Démarrage rapide
+## Démarrage rapide
 
 ### Cloner et ouvrir le projet
 
@@ -25,7 +25,7 @@ Lisez la documentation complète dans l'ordre:
 2. **`Assets/SnakeVR/SETUP_INSTRUCTIONS.md`** - Configuration Unity pas-à-pas
 3. **`Assets/SnakeVR/README.md`** - Architecture du code
 
-## 🔄 Workflow Git
+## Workflow Git
 
 ```bash
 # Avant de travailler
@@ -37,13 +37,13 @@ git commit -m "Description"
 git push
 ```
 
-## 📦 Prérequis
+## Prérequis
 
 - Unity 6000.3.1f1 (ou Unity 6.0.x)
 - Git
 - Meta Quest avec mode développeur (pour tester)
 
-## 📝 Structure
+## Structure
 
 ```
 Assets/SnakeVR/
@@ -53,13 +53,13 @@ Assets/SnakeVR/
 └── SETUP_INSTRUCTIONS.md
 ```
 
-## ⚠️ Important
+## Important
 
 - Les dossiers `Library/`, `Temp/`, `Logs/` sont régénérés automatiquement
 - Ne committez JAMAIS ces dossiers (déjà dans .gitignore)
 - Les fichiers `.meta` DOIVENT être versionnés
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **Erreurs de packages:**
 ```
